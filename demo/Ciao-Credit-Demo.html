@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ciao Credit Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: tabs. Customers = staff panel + customer's phone. Accounting = period totals, per-customer spend, daily chart, ledger. */
+:root{
+  --bg:#edf0ed; --card:#ffffff; --ink:#17211c; --muted:#66736b; --line:#dbe1dc;
+  --brand:#1f6f4a; --brand-ink:#ffffff; --danger:#b3412e;
+  --chat-bg:#efeae2; --bubble-out:#d9fdd3; --bubble-in:#ffffff; --wa-head:#0b6b5c; --wa-head-ink:#ffffff;
+  --free:#1f6f4a; --paid:#9a6a00;
+  --font-display:'Bricolage Grotesque','DM Sans',system-ui,sans-serif;
+  --font-body:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121815; --card:#1b2420; --ink:#eaf0ec; --muted:#93a099; --line:#2a352f;
+  --brand:#5aa57f; --brand-ink:#0f1713; --danger:#e07a67;
+  --chat-bg:#0b141a; --bubble-out:#005c4b; --bubble-in:#202c33; --wa-head:#1f2c34; --wa-head-ink:#e9edef;
+  --free:#6fcf97; --paid:#e0b04a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121815; --card:#1b2420; --ink:#eaf0ec; --muted:#93a099; --line:#2a352f;
+  --brand:#5aa57f; --brand-ink:#0f1713; --danger:#e07a67;
+  --chat-bg:#0b141a; --bubble-out:#005c4b; --bubble-in:#202c33; --wa-head:#1f2c34; --wa-head-ink:#e9edef;
+  --free:#6fcf97; --paid:#e0b04a; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.45;padding-inline:16px;padding-block:20px 32px}
+.wrap{max-width:1040px;margin:0 auto}
+header{margin-bottom:14px}
+h1{font-family:var(--font-display);font-size:28px;margin:0 0 4px;letter-spacing:-.01em;text-wrap:balance}
+header p{margin:0;color:var(--muted);max-width:62ch}
+.langsw{display:flex;gap:6px;justify-content:flex-end;margin-top:-6px}
+.langsw button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.langsw button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.tabs{display:flex;gap:8px;margin:14px 0 18px;flex-wrap:wrap}
+.tab{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 16px;font:inherit;font-weight:700;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;margin:0 0 8px}
+.cust{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:11px 4px;color:inherit;font:inherit;cursor:pointer;border-radius:0}
+.cust:first-of-type{border-top:0}
+.cust[aria-pressed="true"]{background:color-mix(in srgb,var(--brand) 12%,transparent)}
+.cust b.bal{font-variant-numeric:tabular-nums;white-space:nowrap}
+.muted{color:var(--muted);font-size:13px}
+.balance{font-family:var(--font-display);font-size:44px;font-weight:700;margin:2px 0;font-variant-numeric:tabular-nums}
+input[type=number],input[type=text],textarea,select{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+textarea{resize:vertical;min-height:64px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.row{display:flex;gap:10px;margin-top:14px}.row>*{flex:1}
+button.act{border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer;background:var(--brand);color:var(--brand-ink)}
+button.act.danger{background:var(--danger);color:#fff}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer;width:100%}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
+.chip{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 14px;font:inherit;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums}
+.chip.edit::after{content:' ×';color:var(--danger)}
+.chip-add{display:flex;gap:6px;align-items:center}
+.chip-add input{width:84px;padding:6px 10px;border-radius:999px}
+.linkbtn{background:none;border:0;color:var(--brand);font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:4px 0}
+.tx{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px;font-variant-numeric:tabular-nums}
+.pos{color:var(--brand)}.neg{color:var(--danger)}
+.status{min-height:20px;font-size:14px;margin-top:10px}
+.status.err{color:var(--danger)}
+.about{display:inline-block;font-size:12px;color:var(--muted)}
+/* phone */
+.phone{border:1px solid var(--line);border-radius:28px;overflow:hidden;background:var(--chat-bg);display:flex;flex-direction:column;height:560px;position:sticky;top:16px}
+.wa-head{background:var(--wa-head);color:var(--wa-head-ink);padding:12px 16px;display:flex;align-items:center;gap:10px}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700;font-family:var(--font-display)}
+.wa-head small{display:block;opacity:.75;font-size:12px}
+.chat{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px}
+.b{white-space:pre-line;max-width:85%;padding:8px 10px;border-radius:10px;font-size:14px;color:var(--ink);box-shadow:0 1px 1px rgba(0,0,0,.12);overflow-wrap:anywhere}
+.b.out{align-self:flex-start;background:var(--bubble-in)}
+.b.in{align-self:flex-end;background:var(--bubble-out)}
+.b time{display:flex;justify-content:flex-end;gap:6px;font-size:11px;color:var(--muted);margin-top:3px}
+.tag{font-size:11px;font-weight:700}.tag.free{color:var(--free)}.tag.paid{color:var(--paid)}
+.empty{margin:auto;text-align:center;color:var(--muted);font-size:13px;padding:0 24px}
+.phone-actions{padding:10px 12px;background:var(--card);border-top:1px solid var(--line)}
+.note{font-size:13px;color:var(--muted);margin-top:12px}
+/* accounting */
+.bar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+.bar .grow{flex:1;min-width:160px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.tile .v{font-family:var(--font-display);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.tile .h{font-size:12px;color:var(--muted)}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:9px 10px;border-top:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-top:0}
+tfoot td{font-weight:700}
+.two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;margin-top:16px}
+@media(max-width:820px){.two{grid-template-columns:minmax(0,1fr)}}
+.chart{display:flex;align-items:flex-end;gap:10px;height:170px;padding-top:8px}
+.col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.col .fill{width:100%;background:var(--brand);border-radius:6px 6px 0 0;min-height:2px}
+.col .val{font-size:11px;color:var(--muted);margin-bottom:3px;font-variant-numeric:tabular-nums}
+.col .day{font-size:11px;color:var(--muted);margin-top:6px}
+textarea.csv{font-family:ui-monospace,Menlo,monospace;font-size:12px;min-height:120px;margin-top:10px}
+
+/* WhatsApp look */
+.phone{border:6px solid #1c2622;border-radius:34px;background:var(--chat-bg)}
+.phone .ic{width:22px;height:22px;flex:none}
+.wa-head{padding:10px 12px;gap:8px}
+.wa-head .who{flex:1;min-width:0;line-height:1.2}
+.wa-head .who b{display:flex;align-items:center;gap:5px;font-size:16px}
+.verified{width:15px;height:15px}
+.wa-icons{display:flex;gap:14px;align-items:center}
+.chat{background-image:radial-gradient(circle at 20% 30%,rgba(127,127,127,.09) 0 2px,transparent 3px),radial-gradient(circle at 70% 65%,rgba(127,127,127,.09) 0 2px,transparent 3px);background-size:46px 46px,58px 58px;gap:6px}
+.datechip{align-self:center;background:var(--bubble-in);color:var(--muted);font-size:12px;padding:4px 12px;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,.1);margin-bottom:4px}
+.b{position:relative;border-radius:8px;padding:6px 9px 4px;font-size:14.5px;line-height:1.35}
+.b.out{border-top-left-radius:0}
+.b.in{border-top-right-radius:0}
+.b.out::before,.b.in::before{content:'';position:absolute;top:0;width:0;height:0;border-top:9px solid transparent}
+.b.out::before{left:-8px;border-right:9px solid var(--bubble-in)}
+.b.in::before{right:-8px;border-left:9px solid var(--bubble-out)}
+.b time{margin-top:2px;align-items:center}
+.tick{color:#53bdeb;letter-spacing:-3px;font-size:12px}
+.phone-actions{background:var(--chat-bg);border-top:0;padding:8px 10px 10px;display:grid;gap:8px}
+.quick{border-radius:999px;background:var(--bubble-in);color:var(--free);border:1px solid var(--line);font-weight:700;font-size:13px;padding:8px 12px}
+.wa-input{display:flex;gap:8px;align-items:center}
+.wa-input .pill{flex:1;display:flex;align-items:center;gap:8px;background:var(--bubble-in);color:var(--muted);border-radius:999px;padding:9px 12px}
+.wa-input .send{width:42px;height:42px;border-radius:50%;border:0;background:#00a884;color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.wa-input .send svg{width:22px;height:22px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Ciao customer credit</h1>
+  <p>Demo with sample customers. Top up or deduct credit, see the WhatsApp message the customer receives, and check the accounting. Nothing is really sent.</p>
+</header>
+
+<div class="langsw" role="group" aria-label="App language" data-dyn><button type="button" id="langEN" aria-pressed="true">English</button><button type="button" id="langIT" aria-pressed="false">Italiano</button></div>
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" id="tabC" aria-selected="true">Customers</button>
+  <button class="tab" role="tab" id="tabA" aria-selected="false">Accounting</button>
+</div>
+
+<!-- CUSTOMERS -->
+<div id="viewC" class="grid">
+  <div style="display:grid;gap:16px;min-width:0">
+    <section class="card">
+      <p class="label">Customers</p>
+      <label for="search" style="margin:0 0 8px">Search by name, phone, university or note</label>
+      <input id="search" type="text" inputmode="search" autocomplete="off" placeholder="e.g. Marco, 347 or Bocconi">
+      <div id="list" data-dyn style="margin-top:8px"></div>
+      <button class="ghost" id="newBtn" style="margin-top:10px">+ New customer</button>
+      <form id="newForm" hidden style="margin-top:10px;border-top:1px solid var(--line);padding-top:4px">
+        <label for="nName">Full name</label>
+        <input id="nName" type="text" autocomplete="off">
+        <label for="nPhone">Mobile number (Italy +39 assumed)</label>
+        <input id="nPhone" type="text" inputmode="tel" placeholder="333 123 4567" autocomplete="off">
+        <label for="nUniSel">University / group (optional)</label>
+        <select id="nUniSel" data-dyn class="unisel"></select>
+        <input id="nUniOther" type="text" autocomplete="off" placeholder="Type university or group" style="margin-top:8px" hidden>
+        <label for="nNotes">Note (optional)</label>
+        <textarea id="nNotes" placeholder="e.g. Vegetarian, usually comes Fridays"></textarea>
+        <label style="display:flex;align-items:center;gap:8px;color:var(--ink)"><input id="nConsent" type="checkbox" checked style="width:20px;height:20px"> Customer agreed to receive balance messages</label>
+        <div class="status" id="nStatus" data-dyn role="alert"></div>
+        <div class="row">
+          <button type="button" class="ghost" id="nCancel">Cancel</button>
+          <button type="button" class="act" id="nSave">Save customer</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card" id="detail">
+      <p class="label">Selected customer</p>
+      <div id="dName" style="font-weight:700;font-size:18px"></div>
+      <div class="muted" id="dPhone"></div>
+      <div class="balance" id="dBal"></div>
+
+      <label for="amount">Amount (€)</label>
+      <input id="amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="e.g. 37.50">
+      <div class="chips" id="chips" data-dyn aria-label="Quick amounts"></div>
+      <button class="linkbtn" id="editPresets" data-dyn type="button">Edit quick amounts</button>
+
+      <label for="note">Note for this transaction (optional)</label>
+      <input id="note" type="text" placeholder="e.g. Table 4 dinner">
+      <div class="row">
+        <button class="act danger" id="charge">Deduct</button>
+        <button class="act" id="topup">Add credit</button>
+      </div>
+      <div class="status" id="status" data-dyn role="status"></div>
+
+      <p class="label" style="margin-top:14px">Customer details</p>
+      <label for="uniSel" style="margin-top:0">University / group</label>
+      <select id="uniSel" data-dyn class="unisel"></select>
+      <input id="uniOther" type="text" autocomplete="off" placeholder="Type university or group" style="margin-top:8px" hidden>
+      <label for="noteNew">Notes</label>
+      <div style="display:flex;gap:8px">
+        <input id="noteNew" type="text" autocomplete="off" placeholder="Add a note, e.g. allergic to nuts">
+        <button class="act" id="noteAdd" type="button" style="flex:none">Add</button>
+      </div>
+      <div id="noteList" data-dyn></div>
+
+      <p class="label" style="margin-top:16px">History</p>
+      <div id="hist" data-dyn></div>
+    </section>
+  </div>
+
+  <aside>
+    <div class="phone" aria-label="Customer's WhatsApp">
+      <div class="wa-head">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="avatar">C</div>
+        <div class="who"><b>Ciao <svg class="verified" viewBox="0 0 24 24" aria-label="Verified business"><circle cx="12" cy="12" r="11" fill="#25d366"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></b><small>business account</small></div>
+        <div class="wa-icons" aria-hidden="true">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 015.5 5h8A2.5 2.5 0 0116 7.5v9a2.5 2.5 0 01-2.5 2.5h-8A2.5 2.5 0 013 16.5zM17 10l4-2.5v9L17 14z" fill="currentColor"/></svg>
+          <svg class="ic" viewBox="0 0 24 24"><path d="M6.6 3.5l2.2-.5 1.6 4-1.9 1.4a11 11 0 005.1 5.1l1.4-1.9 4 1.6-.5 2.2a2.5 2.5 0 01-2.6 2A15.5 15.5 0 014.6 6.1a2.5 2.5 0 012-2.6z" fill="currentColor"/></svg>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/></svg>
+        </div>
+      </div>
+      <div class="chat" id="chat" data-dyn></div>
+      <div class="phone-actions">
+        <button class="ghost quick" id="ask" data-dyn>Customer sends “Balance”</button>
+        <div class="wa-input">
+          <div class="pill"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M8 14.2c1 1.5 2.3 2.2 4 2.2s3-.7 4-2.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Message</span></div>
+          <button type="button" class="send" id="sendBtn" aria-label="Send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3 3 0 003-3v-6a3 3 0 00-6 0v6a3 3 0 003 3zm5-3a5 5 0 01-10 0H5.5a6.5 6.5 0 006 6.4V21h1v-2.1a6.5 6.5 0 006-6.4z" fill="currentColor"/></svg></button>
+        </div>
+      </div>
+    </div>
+    <p class="note">Messages to customers are always in English. Deductions send a message. Top-ups stay silent, unless the customer wrote to the restaurant in the last 24 hours. Then every change is sent as a free message. Use the button under the phone to try it.</p>
+  </aside>
+</div>
+
+<!-- ACCOUNTING -->
+<div id="viewA" hidden>
+  <div class="bar">
+    <div class="grow">
+      <label for="period" style="margin-top:0">Period</label>
+      <select id="period">
+        <option value="today">Today</option>
+        <option value="7" selected>Last 7 days</option>
+        <option value="30">Last 30 days</option>
+        <option value="all">All time</option>
+      </select>
+    </div>
+    <div class="grow">
+      <label for="group" style="margin-top:0">University / group</label>
+      <select id="group" data-dyn></select>
+    </div>
+    <button class="ghost" id="csvBtn" data-dyn style="width:auto">Copy report as CSV</button>
+  </div>
+
+  <div class="tiles" id="tiles" data-dyn></div>
+
+  <section class="card">
+    <p class="label">Spending by customer</p>
+    <div class="scroll"><table id="byCust" data-dyn></table></div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <p class="label">Daily spending, last 7 days</p>
+      <div class="chart" id="chart" data-dyn></div>
+    </section>
+    <section class="card">
+      <p class="label">All universities and groups</p>
+      <div class="scroll"><table id="byUni" data-dyn></table></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <p class="label">Ledger</p>
+    <div class="scroll"><table id="ledger" data-dyn></table></div>
+    <textarea class="csv" id="csvOut" hidden readonly aria-label="CSV report"></textarea>
+  </section>
+</div>
+</div>
+
+<script>
+const R='Ciao', DAY=864e5;
+const fmt=c=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(c/100);
+const signed=c=>(c<0?'-':'+')+fmt(Math.abs(c));
+const clock=()=>new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+const dstr=ts=>new Date(ts).toLocaleDateString(lang==='it'?'it-IT':'en-GB',{day:'2-digit',month:'short'});
+const dtstr=ts=>dstr(ts)+' '+new Date(ts).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+const startOfDay=ts=>{const d=new Date(ts);d.setHours(0,0,0,0);return d.getTime();};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+
+/* App language (staff interface). Customer messages are always English. */
+let lang='en';
+try{lang=localStorage.getItem('lang')==='it'?'it':'en';}catch(_){}
+const IT={
+'Ciao customer credit':'Credito clienti Ciao',
+'Demo with sample customers. Top up or deduct credit, see the WhatsApp message the customer receives, and check the accounting. Nothing is really sent.':'Demo con clienti di esempio. Ricarica o scala il credito, guarda il messaggio WhatsApp che riceve il cliente e controlla la contabilità. Non viene inviato nulla.',
+'Customers':'Clienti','Accounting':'Contabilità',
+'Search by name, phone, university or note':'Cerca per nome, telefono, università o nota',
+'e.g. Marco, 347 or Bocconi':'es. Marco, 347 o Bocconi',
+'+ New customer':'+ Nuovo cliente','Full name':'Nome completo',
+'Mobile number (Italy +39 assumed)':'Numero di cellulare (si assume Italia +39)',
+'University / group (optional)':'Università / gruppo (facoltativo)','Type university or group':'Scrivi università o gruppo',
+'Note (optional)':'Nota (facoltativa)','e.g. Vegetarian, usually comes Fridays':'es. Vegetariano, viene di solito il venerdì',
+'Customer agreed to receive balance messages':'Il cliente ha accettato di ricevere messaggi sul saldo',
+'Cancel':'Annulla','Save customer':'Salva cliente','Selected customer':'Cliente selezionato',
+'Amount (€)':'Importo (€)','e.g. 37.50':'es. 37,50','Edit quick amounts':'Modifica importi rapidi','Done':'Fatto',
+'Note for this transaction (optional)':'Nota per questa operazione (facoltativa)','e.g. Table 4 dinner':'es. Cena tavolo 4',
+'Deduct':'Scala','Add credit':'Aggiungi credito','Customer details':'Dati cliente','University / group':'Università / gruppo',
+'Notes':'Note','Add a note, e.g. allergic to nuts':'Aggiungi una nota, es. allergia alle noci','Add':'Aggiungi','History':'Storico',
+'business account':'account aziendale','Message':'Messaggio',
+'Messages to customers are always in English. Deductions send a message. Top-ups stay silent, unless the customer wrote to the restaurant in the last 24 hours. Then every change is sent as a free message. Use the button under the phone to try it.':'I messaggi ai clienti sono sempre in inglese. Gli addebiti inviano un messaggio. Le ricariche restano silenziose, a meno che il cliente non abbia scritto al ristorante nelle ultime 24 ore: in quel caso ogni movimento viene inviato come messaggio gratuito. Usa il pulsante sotto il telefono per provare.',
+'Period':'Periodo','Today':'Oggi','Last 7 days':'Ultimi 7 giorni','Last 30 days':'Ultimi 30 giorni','All time':'Sempre',
+'Copy report as CSV':'Copia report in CSV','Copied':'Copiato','Spending by customer':'Spesa per cliente',
+'Daily spending, last 7 days':'Spesa giornaliera, ultimi 7 giorni','All universities and groups':'Tutte le università e i gruppi','Ledger':'Registro movimenti',
+'Not set':'Non impostato','Other (type manually)…':'Altro (scrivi a mano)…',
+'No customers found.':'Nessun cliente trovato.','No notes yet.':'Ancora nessuna nota.','Delete':'Elimina','No transactions yet.':'Ancora nessun movimento.',
+'Top-up':'Ricarica','Charge':'Addebito','free message':'messaggio gratuito','template message':'messaggio modello',
+'No messages yet. Deduct credit to see what the customer receives.':'Ancora nessun messaggio. Scala del credito per vedere cosa riceve il cliente.',
+'Enter an amount, e.g. 25 or 12.50':'Inserisci un importo, es. 25 o 12,50','Not enough credit. Balance is ':'Credito insufficiente. Il saldo è ',
+'Done. New balance ':'Fatto. Nuovo saldo ','Message sent to customer.':'Messaggio inviato al cliente.',
+'No message: customer has not agreed to receive messages.':'Nessun messaggio: il cliente non ha accettato di riceverli.',
+'No message sent for top-ups.':'Nessun messaggio per le ricariche.',
+'Name is required.':'Il nome è obbligatorio.','Enter a valid mobile number.':'Inserisci un numero di cellulare valido.',
+'This number is already registered.':'Questo numero è già registrato.','Customer added. Add credit to get started.':'Cliente aggiunto. Aggiungi credito per iniziare.',
+'Customer sends':'Il cliente invia',
+'Credit sold':'Credito venduto','Top-ups in period':'Ricariche nel periodo','Spent by customers':'Speso dai clienti',
+'purchases':'acquisti','avg':'media','Credit still owed':'Credito residuo dei clienti','Unspent balances today':'Saldi non spesi oggi',
+'Customer':'Cliente','Top-ups':'Ricariche','Spent':'Speso','Visits':'Visite','Last purchase':'Ultimo acquisto','Balance':'Saldo','Total':'Totale',
+'Group':'Gruppo','Date':'Data','Type':'Tipo','Note':'Nota','Amount':'Importo','No transactions in this period.':'Nessun movimento in questo periodo.'
+};
+const T=k=>lang==='it'&&IT[k]!==undefined?IT[k]:k;
+function applyStatic(){
+  const tw=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let n;
+  while((n=tw.nextNode())){
+    if(n.parentElement.closest('script,style,[data-dyn]'))continue;
+    if(n._en===undefined)n._en=n.nodeValue;
+    const key=n._en.trim();if(!key)continue;
+    n.nodeValue=lang==='it'&&IT[key]!==undefined?n._en.replace(key,IT[key]):n._en;
+  }
+  document.querySelectorAll('[placeholder]').forEach(e=>{if(e._ph===undefined)e._ph=e.getAttribute('placeholder');e.setAttribute('placeholder',T(e._ph));});
+  document.documentElement.lang=lang;
+  $('langEN').setAttribute('aria-pressed',lang==='en');$('langIT').setAttribute('aria-pressed',lang==='it');
+}
+
+const ago=(d,h=13)=>{const t=startOfDay(Date.now()-d*DAY)+h*3600e3;return Math.min(t,Date.now()-6e4);};
+
+const customers=[
+ {id:1,name:'Marco Rossi',phone:'+39 333 000 0001',uni:'Milano-Bicocca',notes:'Comes most Fridays. Prefers the corner table.',open:false,consent:true,tx:[
+   {k:'topup',c:15000,n:'Welcome credit',ts:ago(9,19)},{k:'charge',c:-3500,n:'Dinner',ts:ago(6,20)},{k:'charge',c:-3000,n:'Lunch',ts:ago(3,13)}],chat:[]},
+ {id:2,name:'Giulia Bianchi',phone:'+39 333 000 0002',uni:'Bocconi',notes:'Vegetarian.',open:false,consent:true,tx:[
+   {k:'topup',c:10000,n:'',ts:ago(6,18)},{k:'charge',c:-6000,n:'Group dinner',ts:ago(2,21)}],chat:[]},
+ {id:3,name:'Sara Conti',phone:'+39 333 000 0003',uni:'Milano-Bicocca',notes:'',open:false,consent:true,tx:[
+   {k:'topup',c:10000,n:'',ts:ago(3,18)},{k:'charge',c:-1500,n:'Lunch',ts:ago(1,13)}],chat:[]},
+ {id:4,name:'Luca Ferri',phone:'+39 333 000 0004',uni:'Politecnico di Milano',notes:'Pays in cash, tops up in round amounts.',open:false,consent:true,tx:[
+   {k:'topup',c:5000,n:'',ts:ago(1,19)},{k:'charge',c:-1250,n:'Lunch',ts:ago(0,12)}],chat:[]}
+];
+customers.forEach(c=>{c.bal=c.tx.reduce((s,t)=>s+t.c,0);c.log=c.notes?[{ts:ago(5,15),text:c.notes}]:[];delete c.notes;});
+/* Customer messages: always English. */
+const MSG={charge:(a,b)=>`Deducted: ${a}
+Remaining balance: ${b}`,topup:(a,b)=>`Added: ${a}
+Balance: ${b}`,ask:'Balance',
+  reply:(f,b)=>`Hi ${f}, your credit balance at ${R} is ${b}. Message us anytime to check it. Reply STOP to stop automatic updates.`};
+/* University choices: three fixed options, "not set", and a manual entry. */
+const UNIS=['Università degli Studi di Milano','Milano-Bicocca','Politecnico di Milano'];
+function buildUniOptions(){
+  document.querySelectorAll('.unisel').forEach(s=>{
+    const v=s.value;
+    s.innerHTML=`<option value="">${T('Not set')}</option>`+UNIS.map(u=>`<option value="${u}">${u}</option>`).join('')+`<option value="__other">${T('Other (type manually)…')}</option>`;
+    s.value=v;
+  });
+}
+buildUniOptions();
+function getUni(sel,other){return $(sel).value==='__other'?$(other).value.trim():$(sel).value;}
+function setUni(sel,other,val){
+  const s=$(sel),o=$(other);
+  if(!val){s.value='';o.hidden=true;o.value='';}
+  else if(UNIS.includes(val)){s.value=val;o.hidden=true;o.value='';}
+  else{s.value='__other';o.hidden=false;if(o.value!==val)o.value=val;}
+}
+function wireUni(sel,other,onChange){
+  $(sel).onchange=()=>{const o=$(other);o.hidden=$(sel).value!=='__other';if(!o.hidden){o.value='';o.focus();}onChange();};
+  $(other).oninput=onChange;
+}
+let cur=customers[0], presets=[10,20,30,50,100], editingPresets=false;
+
+/* ---------- customers view ---------- */
+function bubble(c,dir,text,tag){c.chat.push({dir,text,tag,time:clock()});}
+function renderList(){
+  const term=$('search').value.trim().toLowerCase().replace(/\s+/g,'');
+  const shown=customers.filter(c=>!term||(c.name+c.phone+c.uni+c.log.map(n=>n.text).join(' ')).toLowerCase().replace(/\s+/g,'').includes(term));
+  $('list').innerHTML=!shown.length?`<p class="muted" style="margin:8px 0 0">${T('No customers found.')}</p>`:shown.map(c=>`<button class="cust" data-id="${c.id}" aria-pressed="${c===cur}"><span><b>${esc(c.name)}</b><br><span class="muted">${esc(c.phone)}${c.uni?' · '+esc(c.uni):''}</span></span><b class="bal">${fmt(c.bal)}</b></button>`).join('');
+  document.querySelectorAll('.cust').forEach(b=>b.onclick=()=>{cur=customers.find(c=>c.id==b.dataset.id);$('status').textContent='';renderCustomers();});
+}
+function renderChips(){
+  $('chips').innerHTML=presets.map((p,i)=>`<button type="button" class="chip${editingPresets?' edit':''}" data-i="${i}">${editingPresets?p:'€'+p}</button>`).join('')+
+    (editingPresets?`<span class="chip-add"><input id="newPreset" type="number" inputmode="decimal" min="1" step="1" placeholder="€" aria-label="New quick amount"><button type="button" class="chip" id="addPreset">${T('Add')}</button></span>`:'');
+  document.querySelectorAll('.chip[data-i]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i;
+    if(editingPresets){presets.splice(i,1);renderChips();}
+    else{$('amount').value=presets[i];$('amount').focus();}
+  });
+  const add=$('addPreset');
+  if(add)add.onclick=()=>{const v=parseFloat($('newPreset').value.replace(',','.'));if(v>0&&!presets.includes(v)){presets.push(v);presets.sort((a,b)=>a-b);renderChips();}};
+  $('editPresets').textContent=T(editingPresets?'Done':'Edit quick amounts');
+}
+function renderDetail(){
+  $('dName').textContent=cur.name;$('dPhone').textContent=cur.phone;$('dBal').textContent=fmt(cur.bal);
+  if(getUni('uniSel','uniOther')!==cur.uni||($('uniSel').value==='__other')!==(!!cur.uni&&!UNIS.includes(cur.uni)))setUni('uniSel','uniOther',cur.uni);
+  $('ask').textContent=`${T('Customer sends')} “${MSG.ask}”`;
+  $('noteList').innerHTML=cur.log.length?cur.log.slice().sort((a,b)=>b.ts-a.ts).map(n=>`<div class="tx"><span>${esc(n.text)}<br><span class="muted">${dstr(n.ts)}</span></span><button type="button" class="linkbtn" data-ts="${n.ts}" aria-label="Delete note" style="color:var(--danger)">${T('Delete')}</button></div>`).join(''):`<p class="muted" style="margin:8px 0 0">${T('No notes yet.')}</p>`;
+  document.querySelectorAll('#noteList [data-ts]').forEach(b=>b.onclick=()=>{cur.log=cur.log.filter(n=>String(n.ts)!==b.dataset.ts);renderDetail();renderList();});
+  $('hist').innerHTML=cur.tx.length?cur.tx.slice().sort((a,b)=>b.ts-a.ts).map(t=>`<div class="tx"><span>${dtstr(t.ts)}<br><span class="muted">${T(t.k==='topup'?'Top-up':'Charge')}${t.n?' · '+esc(t.n):''}</span></span><b class="${t.c>0?'pos':'neg'}">${signed(t.c)}</b></div>`).join(''):`<p class="muted">${T('No transactions yet.')}</p>`;
+}
+function renderChat(){
+  const chat=$('chat');
+  chat.innerHTML=cur.chat.length?`<div class="datechip">${T('Today')}</div>`+cur.chat.map(m=>`<div class="b ${m.dir}">${esc(m.text)}<time>${m.tag?`<span class="tag ${m.tag==='free message'?'free':'paid'}">${T(m.tag)}</span>`:''}<span>${m.time}${m.dir==='in'?' <span class="tick">✓✓</span>':''}</span></time></div>`).join(''):`<div class="empty">${T('No messages yet. Deduct credit to see what the customer receives.')}</div>`;
+  chat.scrollTop=chat.scrollHeight;
+}
+function renderCustomers(){renderList();renderChips();renderDetail();renderChat();}
+
+function move(kind){
+  const eurs=parseFloat($('amount').value.replace(',','.'));
+  const st=$('status');st.className='status';
+  if(!(eurs>0)){st.textContent=T('Enter an amount, e.g. 25 or 12.50');st.className='status err';return;}
+  const cents=Math.round(eurs*100);
+  if(kind==='charge'&&cents>cur.bal){st.textContent=T('Not enough credit. Balance is ')+fmt(cur.bal)+'.';st.className='status err';return;}
+  const delta=kind==='charge'?-cents:cents;
+  cur.bal+=delta;cur.tx.push({k:kind,c:delta,n:$('note').value.trim(),ts:Date.now()});
+  let sent=false;
+  if(cur.consent!==false&&(kind==='charge'||cur.open)){
+    const text=MSG[kind==='charge'?'charge':'topup'](fmt(cents),fmt(cur.bal));
+    bubble(cur,'out',text,cur.open?'free message':'template message');sent=true;
+  }
+  st.textContent=T('Done. New balance ')+fmt(cur.bal)+'. '+T(sent?'Message sent to customer.':cur.consent===false?'No message: customer has not agreed to receive messages.':'No message sent for top-ups.');
+  $('amount').value='';$('note').value='';renderCustomers();
+}
+$('charge').onclick=()=>move('charge');
+$('topup').onclick=()=>move('topup');
+$('sendBtn').onclick=()=>$('ask').click();
+$('ask').onclick=()=>{
+  const first=cur.name.split(' ')[0];
+  const m=MSG;
+  bubble(cur,'in',m.ask);cur.open=true;
+  bubble(cur,'out',m.reply(first,fmt(cur.bal)),'free message');
+  renderChat();
+};
+$('search').oninput=renderList;
+$('editPresets').onclick=()=>{editingPresets=!editingPresets;renderChips();};
+wireUni('uniSel','uniOther',()=>{cur.uni=getUni('uniSel','uniOther');renderList();});
+wireUni('nUniSel','nUniOther',()=>{});
+function addNote(){const t=$('noteNew').value.trim();if(!t)return;cur.log.push({ts:Date.now(),text:t});$('noteNew').value='';renderDetail();renderList();}
+$('noteAdd').onclick=addNote;
+$('noteNew').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addNote();}};
+
+function toggleForm(open){$('newForm').hidden=!open;$('newBtn').hidden=open;if(open){['nName','nPhone','nNotes'].forEach(i=>$(i).value='');setUni('nUniSel','nUniOther','');$('nConsent').checked=true;$('nStatus').textContent='';$('nName').focus();}}
+$('newBtn').onclick=()=>toggleForm(true);
+$('nCancel').onclick=()=>toggleForm(false);
+const saveCustomer=()=>{
+  const st=$('nStatus');st.className='status err';
+  const name=$('nName').value.trim();
+  let p=$('nPhone').value.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[\s\-().]/g,'');
+  if(p.startsWith('00'))p='+'+p.slice(2);
+  if(!p.startsWith('+'))p='+39'+p;
+  if(!name){st.textContent=T('Name is required.');st.scrollIntoView({block:'nearest'});return;}
+  if(!/^\+\d{8,15}$/.test(p)){st.textContent=T('Enter a valid mobile number.');st.scrollIntoView({block:'nearest'});return;}
+  const pretty=p.startsWith('+39')?'+39 '+p.slice(3,6)+' '+p.slice(6,9)+' '+p.slice(9):p;
+  if(customers.some(c=>c.phone.replace(/\s/g,'')===p)){st.textContent=T('This number is already registered.');st.scrollIntoView({block:'nearest'});return;}
+  const c={id:Date.now(),name,phone:pretty,uni:getUni('nUniSel','nUniOther'),log:$('nNotes').value.trim()?[{ts:Date.now(),text:$('nNotes').value.trim()}]:[],bal:0,open:false,consent:$('nConsent').checked,tx:[],chat:[]};
+  customers.push(c);cur=c;$('search').value='';toggleForm(false);
+  renderCustomers();$('status').textContent=T('Customer added. Add credit to get started.');$('status').className='status';
+  $('detail').scrollIntoView({behavior:'smooth',block:'start'});
+};
+$('nSave').onclick=saveCustomer;
+$('newForm').onsubmit=e=>{e.preventDefault();saveCustomer();};
+
+/* ---------- accounting view ---------- */
+function periodStart(){
+  const p=$('period').value;
+  if(p==='today')return startOfDay(Date.now());
+  if(p==='all')return 0;
+  return startOfDay(Date.now()-(+p-1)*DAY);
+}
+function renderReport(){
+  const from=periodStart();
+  const gSel=$('group'),prevG=gSel.value;
+  const groups=[...new Set(customers.map(c=>c.uni||'Not set'))].sort();
+  gSel.innerHTML=`<option value="">${T('All universities and groups')}</option>`+groups.map(g=>`<option value="${esc(g)}">${esc(T(g))}</option>`).join('');
+  gSel.value=groups.includes(prevG)?prevG:'';
+  const g=gSel.value;
+  const rowsAll=customers.map(c=>{
+    const t=c.tx.filter(x=>x.ts>=from);
+    const topups=t.filter(x=>x.c>0).reduce((s,x)=>s+x.c,0);
+    const ch=t.filter(x=>x.c<0);
+    const spent=-ch.reduce((s,x)=>s+x.c,0);
+    const last=ch.length?Math.max(...ch.map(x=>x.ts)):0;
+    return {c,topups,spent,visits:ch.length,last};
+  });
+  const rows=rowsAll.filter(r=>!g||(r.c.uni||'Not set')===g);
+  const sum=k=>rows.reduce((s,r)=>s+r[k],0);
+  const topups=sum('topups'),spent=sum('spent'),visits=sum('visits');
+  const owed=rows.reduce((s,r)=>s+r.c.bal,0);
+  $('tiles').innerHTML=[
+    ['Credit sold',fmt(topups),T('Top-ups in period')],
+    ['Spent by customers',fmt(spent),visits+' '+T('purchases')+(visits?', '+T('avg')+' '+fmt(Math.round(spent/visits)):'')],
+    ['Credit still owed',fmt(owed),T('Unspent balances today')]
+  ].map(([l,v,h])=>`<div class="tile"><div class="label" style="margin:0">${T(l)}</div><div class="v">${v}</div><div class="h">${h}</div></div>`).join('');
+
+  const sorted=rows.slice().sort((a,b)=>b.spent-a.spent);
+  $('byCust').innerHTML=`<thead><tr><th>${T('Customer')}</th><th>${T('Top-ups')}</th><th>${T('Spent')}</th><th>${T('Visits')}</th><th>${T('Last purchase')}</th><th>${T('Balance')}</th></tr></thead><tbody>`+
+    sorted.map(r=>`<tr><td>${esc(r.c.name)}<br><span class="about">${esc(r.c.uni||'')}</span></td><td>${fmt(r.topups)}</td><td>${fmt(r.spent)}</td><td>${r.visits}</td><td>${r.last?dstr(r.last):'-'}</td><td>${fmt(r.c.bal)}</td></tr>`).join('')+
+    `</tbody><tfoot><tr><td>${T('Total')}</td><td>${fmt(topups)}</td><td>${fmt(spent)}</td><td>${visits}</td><td></td><td>${fmt(owed)}</td></tr></tfoot>`;
+
+  const uni={};
+  rowsAll.forEach(r=>{const k=r.c.uni||'Not set';uni[k]=uni[k]||{spent:0,topups:0,n:0};uni[k].spent+=r.spent;uni[k].topups+=r.topups;uni[k].n++;});
+  $('byUni').innerHTML=`<thead><tr><th>${T('Group')}</th><th>${T('Customers')}</th><th>${T('Top-ups')}</th><th>${T('Spent')}</th></tr></thead><tbody>`+
+    Object.entries(uni).sort((a,b)=>b[1].spent-a[1].spent).map(([k,v])=>`<tr><td>${esc(T(k))}</td><td>${v.n}</td><td>${fmt(v.topups)}</td><td>${fmt(v.spent)}</td></tr>`).join('')+'</tbody>';
+
+  const days=[...Array(7)].map((_,i)=>startOfDay(Date.now()-(6-i)*DAY));
+  const vals=days.map(d=>-rows.flatMap(r=>r.c.tx).filter(x=>x.c<0&&x.ts>=d&&x.ts<d+DAY).reduce((s,x)=>s+x.c,0));
+  const max=Math.max(...vals,1);
+  $('chart').innerHTML=days.map((d,i)=>`<div class="col"><div class="val">${vals[i]?fmt(vals[i]).replace(',00',''):''}</div><div class="fill" style="height:${Math.round(vals[i]/max*120)}px"></div><div class="day">${new Date(d).toLocaleDateString(lang==='it'?'it-IT':'en-GB',{weekday:'short'})}</div></div>`).join('');
+
+  const led=rows.flatMap(r=>r.c.tx.map(t=>({...t,name:r.c.name,uni:r.c.uni}))).filter(t=>t.ts>=from).sort((a,b)=>b.ts-a.ts);
+  $('ledger').innerHTML=`<thead><tr><th>${T('Date')}</th><th>${T('Customer')}</th><th>${T('Type')}</th><th>${T('Note')}</th><th>${T('Amount')}</th></tr></thead><tbody>`+
+    (led.length?led.map(t=>`<tr><td>${dtstr(t.ts)}</td><td>${esc(t.name)}</td><td>${T(t.k==='topup'?'Top-up':'Charge')}</td><td style="text-align:left;white-space:normal">${esc(t.n||'')}</td><td class="${t.c>0?'pos':'neg'}">${signed(t.c)}</td></tr>`).join(''):'<tr><td colspan="5" style="text-align:left" class="muted">'+T('No transactions in this period.')+'</td></tr>')+'</tbody>';
+  window._led=led;
+}
+$('period').onchange=renderReport;
+$('group').onchange=renderReport;
+$('csvBtn').onclick=()=>{
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const csv=['Date,Customer,University,Type,Note,Amount EUR'].concat((window._led||[]).map(t=>[dtstr(t.ts),t.name,t.uni,t.k,t.n,(t.c/100).toFixed(2)].map(q).join(','))).join('\n');
+  const out=$('csvOut');out.value=csv;out.hidden=false;out.focus();out.select();
+  const done=()=>{$('csvBtn').textContent=T('Copied');setTimeout(()=>$('csvBtn').textContent=T('Copy report as CSV'),2000);};
+  try{navigator.clipboard.writeText(csv).then(done,()=>{});}catch(_){}
+};
+
+/* ---------- tabs ---------- */
+function tab(a){
+  $('viewC').hidden=a;$('viewA').hidden=!a;
+  $('tabC').setAttribute('aria-selected',!a);$('tabA').setAttribute('aria-selected',a);
+  if(a)renderReport();
+}
+$('tabC').onclick=()=>tab(false);
+$('tabA').onclick=()=>tab(true);
+function setLang(l){
+  lang=l;try{localStorage.setItem('lang',l);}catch(_){}
+  applyStatic();buildUniOptions();$('csvBtn').textContent=T('Copy report as CSV');
+  renderCustomers();if(!$('viewA').hidden)renderReport();
+}
+$('langEN').onclick=()=>setLang('en');
+$('langIT').onclick=()=>setLang('it');
+$('csvBtn').textContent=T('Copy report as CSV');
+applyStatic();renderCustomers();
+</script>
+</body>
+</html>
