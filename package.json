@@ -1,0 +1,14 @@
+{
+  "name": "restaurant-credit",
+  "version": "1.0.0",
+  "description": "Prepaid customer credit for a restaurant, with automatic balance messages (Italy)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
